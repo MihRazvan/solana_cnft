@@ -3,29 +3,21 @@
         {
             "trait_type": "Background",
             "value": "Pink Background"
-        },
-        {
-            "trait_type": "Outfit",
-            "value": "Collared Shirt"
-        },
-        {
-            "trait_type": "Face",
-            "value": "Smile"
         }
     ],
     "collection": {
-        "name": "Froggies",
-        "family": "wat"
+        "name": "Test Collection",
+        "family": "Test"
     },
-    "description": "Foo foo foo",
-    "external_url": "https://gooddog.com/",
-    "name": "Frog #0",
+    "description": "Test NFT for Devnet",
+    "external_url": "",
+    "name": "Test NFT #0",
     "image": "0.png",
     "properties": {
         "category": "image",
         "creators": [
             {
-                "address": "REPLACE",
+                "address": "7Shhbu7KcCjGx1eLhdnMBKKBqKsbtUh9CoGBsTSmKYCS",
                 "share": 100
             }
         ],
@@ -37,5 +29,5 @@
         ]
     },
     "seller_fee_basis_points": 500,
-    "symbol": "FROG"
+    "symbol": "TEST"
 }
