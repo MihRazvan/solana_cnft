@@ -1,0 +1,68 @@
+{
+    "name": "Froggies",
+    "symbol": "FROG",
+    "description": "Froggies Collection",
+    "seller_fee_basis_points": 500,
+    "image": "collection.png",
+    "attributes": [
+        {
+            "trait_type": "Background",
+            "value": "Pink Background"
+        },
+        {
+            "trait_type": "Outfit",
+            "value": "Collared Shirt"
+        },
+        {
+            "trait_type": "Face",
+            "value": "Smile"
+        },
+        {
+            "trait_type": "Background",
+            "value": "Green Background"
+        },
+        {
+            "trait_type": "Outfit",
+            "value": "Cape Shirt"
+        },
+        {
+            "trait_type": "Background",
+            "value": "Pink Background"
+        },
+        {
+            "trait_type": "Outfit",
+            "value": "Striped Shirt"
+        },
+        {
+            "trait_type": "Face",
+            "value": "Surprised"
+        },
+        {
+            "trait_type": "Background",
+            "value": "Blue Background"
+        },
+        {
+            "trait_type": "Outfit",
+            "value": "Collared Shirt"
+        },
+        {
+            "trait_type": "Face",
+            "value": "Sleepy"
+        }
+    ],
+    "properties": {
+        "files": [
+            {
+                "uri": "collection.png",
+                "type": "image/png"
+            }
+        ],
+        "creators": [
+            {
+                "address": "REPLACE",
+                "share": 100
+            }
+        ],
+        "category": "Sugar Test Collection"
+    }
+}
