@@ -5,7 +5,10 @@
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "create-candy-machine": "ts-node ./scripts/create-candy-machine.ts",
     "sugar": "cd programs/formfn-sugar && cargo run --",
-    "setup": "yarn install && ./scripts/setup-idl.sh"
+    "setup": "yarn install && ./scripts/setup-idl.sh",
+    "test": "anchor test",
+    "test:local": "anchor test --skip-local-validator",
+    "build": "anchor build"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
