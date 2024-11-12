@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    token::{Token, TokenAccount},
+    token::{Token, TokenAccount, Mint},
     associated_token::AssociatedToken,
 };
 
@@ -76,9 +76,14 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// CHECK: Fraction mint account
-    #[account(mut)]
-    pub fraction_mint: UncheckedAccount<'info>,
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = FRACTION_DECIMALS,
+        mint::authority = authority,
+        mint::freeze_authority = authority
+    )]
+    pub fraction_mint: Account<'info, Mint>,
 
     /// CHECK: Program authority for fraction mint
     #[account(
@@ -110,13 +115,16 @@ pub struct LockCNFT<'info> {
     /// CHECK: Verified through compression program
     pub merkle_tree: UncheckedAccount<'info>,
 
-    /// CHECK: The fraction mint
     #[account(mut)]
-    pub fraction_mint: UncheckedAccount<'info>,
+    pub fraction_mint: Account<'info, Mint>,
 
-    /// CHECK: Owner's token account
-    #[account(mut)]
-    pub owner_fraction_account: UncheckedAccount<'info>,
+    #[account(
+        init_if_needed,
+        payer = owner,
+        associated_token::mint = fraction_mint,
+        associated_token::authority = owner,
+    )]
+    pub owner_fraction_account: Account<'info, TokenAccount>,
 
     /// CHECK: PDA for fraction mint authority
     #[account(
@@ -145,15 +153,18 @@ pub struct UnlockCNFT<'info> {
     )]
     pub vault: Account<'info, Vault>,
 
-    /// CHECK: The fraction mint
     #[account(mut)]
-    pub fraction_mint: UncheckedAccount<'info>,
+    pub fraction_mint: Account<'info, Mint>,
 
-    /// CHECK: Owner's token account
-    #[account(mut)]
-    pub owner_fraction_account: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        associated_token::mint = fraction_mint,
+        associated_token::authority = owner,
+    )]
+    pub owner_fraction_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 

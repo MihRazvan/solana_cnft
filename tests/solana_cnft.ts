@@ -99,6 +99,17 @@ describe("solana_cnft", () => {
     }
   });
 
+  it("Can verify fraction token balance after locking", async () => {
+    const ownerAta = await anchor.utils.token.associatedAddress({
+      mint: fractionMint.publicKey,
+      owner: provider.wallet.publicKey,
+    });
+
+    const balance = await provider.connection.getTokenAccountBalance(ownerAta);
+    assert.equal(balance.value.amount, "1000");
+    assert.equal(balance.value.decimals, 0);
+  });
+
   it("Can unlock cNFT", async () => {
     try {
       // Get owner's ATA
