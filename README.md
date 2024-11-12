@@ -99,18 +99,6 @@ The tests verify:
 - Correct minting of 1000 fraction tokens
 - Successful unlocking and token burning
 
-Sample test output:
-```plaintext
-Initialize transaction signature [signature]
-Vault Data: {
-  owner: '7Shhbu7KcCjGx1eLhdnMBKKBqKsbtUh9CoGBsTSmKYCS',
-  assetId: '9NB5CaVMRGcZ37aSqux6s5qWiXhqVcewsqVbnSzg1pSf',
-  merkleTree: 'FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn',
-  lockedAt: [timestamp]
-}
-4 passing
-```
-
 ### Verifying Fractionalization
 Monitor token balances using:
 ```bash
@@ -122,23 +110,10 @@ Check vault status:
 anchor run get-vault [vault-address]
 ```
 
-## Program Dependencies
-```toml
-[dependencies]
-anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
-anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }
-```
-
 ## Design Decisions
 - **Single Global Fraction Mint**: Instead of creating a new token type for each locked cNFT, we use a single fraction token to simplify tracking and improve efficiency.
 - **Fixed Fraction Amount**: Each cNFT is fractionalized into exactly 1000 tokens for consistency and simplicity.
 - **Stateless Design**: The program maintains minimal state, primarily using the vault to track locked cNFTs.
-
-## Future Improvements
-- Configurable fraction amounts
-- Metadata for fraction tokens
-- Transfer restrictions
-- Integration with DEX for fraction trading
 
 ## License
 ISC
