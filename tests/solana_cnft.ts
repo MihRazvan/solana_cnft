@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { SolanaCnft } from "../target/types/solana_cnft";
-import { PublicKey, SystemProgram } from '@solana/web3.js';
+import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import { assert } from "chai";
 
 describe("solana_cnft", () => {
@@ -10,39 +10,42 @@ describe("solana_cnft", () => {
 
   const program = anchor.workspace.SolanaCnft as Program<SolanaCnft>;
 
-  // Your existing cNFT details
-  const existingCnftMint = new PublicKey("FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn"); // Replace with your cNFT mint
-  const merkleTree = new PublicKey("Hs5BNJJZzQ8gzyx4ng5eH7GJrwYKYAV1jeY9GjvSu38n"); // Replace with your merkle tree
+  // Your actual cNFT details from Formfunction Candy Machine
+  const assetId = new PublicKey("9NB5CaVMRGcZ37aSqux6s5qWiXhqVcewsqVbnSzg1pSf");  // The NFT we minted
+  const merkleTree = new PublicKey("FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn"); // The tree where it's stored
 
   // Derive vault PDA
   const [vaultPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), existingCnftMint.toBuffer()],
+    [Buffer.from("vault"), assetId.toBuffer()],
     program.programId
   );
 
   it("Can lock cNFT", async () => {
     try {
       const tx = await program.methods
-        .lockCnft(existingCnftMint)
+        .lockCnft(assetId)
         .accounts({
           owner: provider.wallet.publicKey,
           vault: vaultPda,
           merkleTree: merkleTree,
-          treeConfig: merkleTree, // We might need to derive this properly
-          logWrapper: new PublicKey("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV"),
-          compressionProgram: new PublicKey("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK"),
-          bubblegumProgram: new PublicKey("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"),
           systemProgram: SystemProgram.programId,
         })
         .rpc();
 
       console.log("Lock transaction signature", tx);
 
-      // Fetch the vault to verify
-      const vault = await program.account.vault.fetch(vaultPda);
-      assert(vault.owner.equals(provider.wallet.publicKey));
-      assert(vault.assetId.equals(existingCnftMint));
-      console.log("Vault created successfully");
+      // Fetch and verify the vault
+      const vaultAccount = await program.account.vault.fetch(vaultPda);
+      assert(vaultAccount.owner.equals(provider.wallet.publicKey));
+      assert(vaultAccount.assetId.equals(assetId));
+      assert(vaultAccount.merkleTree.equals(merkleTree));
+
+      console.log("Vault Data:", {
+        owner: vaultAccount.owner.toString(),
+        assetId: vaultAccount.assetId.toString(),
+        merkleTree: vaultAccount.merkleTree.toString(),
+        lockedAt: new Date(vaultAccount.lockedAt * 1000).toISOString()
+      });
     } catch (error) {
       console.error("Error:", error);
       throw error;
