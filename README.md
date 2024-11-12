@@ -146,26 +146,15 @@ ISC
 ## Discussion Points for Further Development
 
 ### Token Strategy Considerations
-1. **Token Uniqueness Strategy**: Currently, the program uses a global fraction token mint for all locked cNFTs. An alternative approach would be to create unique token mints for each locked cNFT. Each approach has different implications for:
-   - Token tracking and management
-   - Trading on DEXes
-   - Gas efficiency
-   - User experience
+1. **Token Uniqueness Strategy**: Currently, the program uses a global fraction token mint for all locked cNFTs. An alternative approach would be to create unique token mints for each locked cNFT. 
 Would the current global token approach align with your intended use case, or should we implement unique tokens per cNFT?
 
 ### Fractionalization Parameters
-2. **Dynamic Token Supply**: The program currently implements a fixed 1:1000 ratio for fractionalization. We could make this dynamic based on various factors:
-   - cNFT metadata attributes
-   - Collection rarity
-   - Market factors
-   - User-specified parameters
+2. **Dynamic Token Supply**: The program currently implements a fixed 1:1000 ratio for fractionalization. We could make this dynamic based on various factors.
+   - Size of the airspace
+   - Location
+   - other
 What parameters would be most relevant for determining the fraction amount in your use case?
 
 ### Feature Extensions
-3. **Potential Enhancements**: Several extensions could add value to the current implementation:
-   - Fraction token metadata reflecting the original cNFT
-   - Integration with existing DEX protocols for fraction trading
-   - Governance mechanisms for fraction holders
-   - Partial unlocking mechanisms
-   - Price feeds for automatic valuation
-Which of these features would be most beneficial for your intended use case?
+What feature would be most beneficial for your intended use case?
