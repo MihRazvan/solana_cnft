@@ -1,0 +1,24 @@
+{
+  "tokenStandard": "nft",
+  "number": 1,
+  "symbol": "TEST",
+  "sellerFeeBasisPoints": 500,
+  "isMutable": true,
+  "isSequential": false,
+  "creators": [
+    {
+      "address": "7Shhbu7KcCjGx1eLhdnMBKKBqKsbtUh9CoGBsTSmKYCS",
+      "share": 100
+    }
+  ],
+  "uploadMethod": "bundlr",
+  "ruleSet": null,
+  "awsConfig": null,
+  "sdriveApiKey": null,
+  "nftStorageAuthToken": null,
+  "shdwStorageAccount": null,
+  "pinataConfig": null,
+  "hiddenSettings": null,
+  "guards": null,
+  "maxEditionSupply": null
+}

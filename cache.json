@@ -1,0 +1,26 @@
+{
+  "program": {
+    "candyMachine": "FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn",
+    "candyGuard": "",
+    "candyMachineCreator": "6sfRcTtFrQz4kLM4c1exSgsDXXsifFCvVXMov2KmJJ3a",
+    "collectionMint": "Hs5BNJJZzQ8gzyx4ng5eH7GJrwYKYAV1jeY9GjvSu38n"
+  },
+  "items": {
+    "-1": {
+      "name": "Test Collection",
+      "image_hash": "0671cbb24dee455d80f249bbcc33dcbfe95a59c0157db87e64040fb360d51c0e",
+      "image_link": "https://gateway.irys.xyz/4Fdr752SUHrfEYHXUsxWVoZfh7L3KjKPUQ5DNi7eGE4h?ext=png",
+      "metadata_hash": "75cb459d382f0c14ecb3bd286454b132cafbc0a20cab93458b566afc627262b1",
+      "metadata_link": "https://gateway.irys.xyz/8r7gLisrAoYvYLy48RoEveqwnNk3mG2UHq2oWUUHvkSp",
+      "onChain": true
+    },
+    "0": {
+      "name": "Test NFT #0",
+      "image_hash": "0671cbb24dee455d80f249bbcc33dcbfe95a59c0157db87e64040fb360d51c0e",
+      "image_link": "https://gateway.irys.xyz/CLsTqopbWzBTh1w1hCJbfTmB5MDrfpS7C642h6mZRkpQ?ext=png",
+      "metadata_hash": "54606a8f9fba0db73c010d5b7bddaaa5950eec23b90efacc8ba1b98ea52f7bde",
+      "metadata_link": "https://gateway.irys.xyz/GP2zmHSz1HRmgFMzw8XYCmYJXRYTpYGg86feC83yZXaj",
+      "onChain": true
+    }
+  }
+}

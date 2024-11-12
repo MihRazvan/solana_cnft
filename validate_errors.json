@@ -1,0 +1,6 @@
+[
+  {
+    "path": "assets/collection.json",
+    "error": "Invalid category 'Test Collection': must be one of: [\"image\", \"video\", \"audio\", \"vr\", \"html\"]"
+  }
+]
