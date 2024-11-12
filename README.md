@@ -147,6 +147,7 @@ ISC
 
 ### Token Strategy Considerations
 1. **Token Uniqueness Strategy**: Currently, the program uses a global fraction token mint for all locked cNFTs. An alternative approach would be to create unique token mints for each locked cNFT. 
+
 Would the current global token approach align with your intended use case, or should we implement unique tokens per cNFT?
 
 ### Fractionalization Parameters
@@ -154,6 +155,7 @@ Would the current global token approach align with your intended use case, or sh
    - Size of the airspace
    - Location
    - other
+  
 What parameters would be most relevant for determining the fraction amount in your use case?
 
 ### Feature Extensions
