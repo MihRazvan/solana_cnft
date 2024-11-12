@@ -1,16 +1,8 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { SolanaCnft } from "../target/types/solana_cnft";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
-import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { PublicKey, SystemProgram } from '@solana/web3.js';
+import { assert } from "chai";
 
 describe("solana_cnft", () => {
   const provider = anchor.AnchorProvider.env();
@@ -18,72 +10,62 @@ describe("solana_cnft", () => {
 
   const program = anchor.workspace.SolanaCnft as Program<SolanaCnft>;
 
-  // Test accounts
-  const owner = Keypair.generate();
-  let assetId: PublicKey;
-  let vaultPda: PublicKey;
-  let fractionMint: Keypair;
-  let ownerFractionAta: PublicKey;
+  // Your existing cNFT details
+  const existingCnftMint = new PublicKey("FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn"); // Replace with your cNFT mint
+  const merkleTree = new PublicKey("Hs5BNJJZzQ8gzyx4ng5eH7GJrwYKYAV1jeY9GjvSu38n"); // Replace with your merkle tree
 
-  before(async () => {
-    // Airdrop SOL to owner
-    const signature = await provider.connection.requestAirdrop(
-      owner.publicKey,
-      2 * LAMPORTS_PER_SOL
-    );
-    await provider.connection.confirmTransaction(signature);
+  // Derive vault PDA
+  const [vaultPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault"), existingCnftMint.toBuffer()],
+    program.programId
+  );
 
-    // Initialize test accounts
-    fractionMint = Keypair.generate();
-    assetId = Keypair.generate().publicKey; // Simulating a cNFT for now
-
-    // Derive PDAs
-    [vaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), assetId.toBuffer()],
-      program.programId
-    );
-  });
-
-  it("Initializes the program", async () => {
-    await program.methods
-      .initialize()
-      .rpc();
-  });
-
-  it("Can lock a cNFT and create fractions", async () => {
+  it("Can lock cNFT", async () => {
     try {
-      // Mock Merkle tree data
-      const root = Buffer.alloc(32);
-      const dataHash = Buffer.alloc(32);
-      const creatorHash = Buffer.alloc(32);
-      const nonce = new anchor.BN(1);
-      const index = 0;
-
-      await program.methods
-        .lockCnft(
-          assetId,
-          Array.from(root),
-          Array.from(dataHash),
-          Array.from(creatorHash),
-          nonce,
-          index
-        )
+      const tx = await program.methods
+        .lockCnft(existingCnftMint)
         .accounts({
-          owner: owner.publicKey,
+          owner: provider.wallet.publicKey,
           vault: vaultPda,
-          merkleTree: Keypair.generate().publicKey, // Mock for now
-          fractionMint: fractionMint.publicKey,
-          ownerFractionAccount: ownerFractionAta,
+          merkleTree: merkleTree,
+          treeConfig: merkleTree, // We might need to derive this properly
+          logWrapper: new PublicKey("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV"),
+          compressionProgram: new PublicKey("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK"),
+          bubblegumProgram: new PublicKey("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"),
           systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([owner, fractionMint])
         .rpc();
 
-      // Verify fraction tokens were created
-      // Add verification logic here
+      console.log("Lock transaction signature", tx);
+
+      // Fetch the vault to verify
+      const vault = await program.account.vault.fetch(vaultPda);
+      assert(vault.owner.equals(provider.wallet.publicKey));
+      assert(vault.assetId.equals(existingCnftMint));
+      console.log("Vault created successfully");
+    } catch (error) {
+      console.error("Error:", error);
+      throw error;
+    }
+  });
+
+  it("Can unlock cNFT", async () => {
+    try {
+      const tx = await program.methods
+        .unlockCnft()
+        .accounts({
+          owner: provider.wallet.publicKey,
+          vault: vaultPda,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      console.log("Unlock transaction signature", tx);
+
+      // Verify vault is closed
+      const vaultAccount = await provider.connection.getAccountInfo(vaultPda);
+      assert(!vaultAccount, "Vault should be closed");
+      console.log("Vault closed successfully");
     } catch (error) {
       console.error("Error:", error);
       throw error;
