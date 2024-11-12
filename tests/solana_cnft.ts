@@ -11,8 +11,11 @@ describe("solana_cnft", () => {
   const program = anchor.workspace.SolanaCnft as Program<SolanaCnft>;
 
   // Your actual cNFT details from Formfunction Candy Machine
-  const assetId = new PublicKey("9NB5CaVMRGcZ37aSqux6s5qWiXhqVcewsqVbnSzg1pSf");  // The NFT we minted
-  const merkleTree = new PublicKey("FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn"); // The tree where it's stored
+  const assetId = new PublicKey("9NB5CaVMRGcZ37aSqux6s5qWiXhqVcewsqVbnSzg1pSf");
+  const merkleTree = new PublicKey("FL8e7g71Q3GkAkeen1M1MTawPaf2c6rsXhg2tvXvHVjn");
+
+  // New keypair for fraction mint
+  const fractionMint = Keypair.generate();
 
   // Derive vault PDA
   const [vaultPda] = PublicKey.findProgramAddressSync(
@@ -28,6 +31,7 @@ describe("solana_cnft", () => {
           owner: provider.wallet.publicKey,
           vault: vaultPda,
           merkleTree: merkleTree,
+          fractionMint: fractionMint.publicKey,
           systemProgram: SystemProgram.programId,
         })
         .rpc();
@@ -39,11 +43,15 @@ describe("solana_cnft", () => {
       assert(vaultAccount.owner.equals(provider.wallet.publicKey));
       assert(vaultAccount.assetId.equals(assetId));
       assert(vaultAccount.merkleTree.equals(merkleTree));
+      assert(vaultAccount.fractionMint.equals(fractionMint.publicKey));
+      assert(vaultAccount.fractionAmount.eq(new anchor.BN(1000)));
 
       console.log("Vault Data:", {
         owner: vaultAccount.owner.toString(),
         assetId: vaultAccount.assetId.toString(),
         merkleTree: vaultAccount.merkleTree.toString(),
+        fractionMint: vaultAccount.fractionMint.toString(),
+        fractionAmount: vaultAccount.fractionAmount.toString(),
         lockedAt: new Date(vaultAccount.lockedAt * 1000).toISOString()
       });
     } catch (error) {

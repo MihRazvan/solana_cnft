@@ -6,6 +6,9 @@ declare_id!("91CLwQaCxutnTf8XafP3e6EmGBA3eUkMaw86Hgghax2L");
 pub mod solana_cnft {
     use super::*;
 
+    pub const FRACTION_AMOUNT: u64 = 1_000;  // Fixed number of fractions
+    pub const FRACTION_DECIMALS: u8 = 0;     // No decimals for simplicity
+
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         Ok(())
     }
@@ -18,6 +21,8 @@ pub mod solana_cnft {
         vault.owner = ctx.accounts.owner.key();
         vault.asset_id = asset_id;
         vault.merkle_tree = ctx.accounts.merkle_tree.key();
+        vault.fraction_mint = ctx.accounts.fraction_mint.key();
+        vault.fraction_amount = FRACTION_AMOUNT;
         vault.locked_at = Clock::get()?.unix_timestamp;
 
         msg!("cNFT locked in vault: {}", vault.key());
@@ -62,6 +67,11 @@ pub struct LockCNFT<'info> {
     /// CHECK: This account should be the merkle tree that contains our cNFT
     pub merkle_tree: UncheckedAccount<'info>,
 
+    /// Will be initialized in our next step for fraction tokens
+    /// CHECK: Verified through mint creation
+    #[account(mut)]
+    pub fraction_mint: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -87,13 +97,17 @@ pub struct Vault {
     pub owner: Pubkey,
     pub asset_id: Pubkey,
     pub merkle_tree: Pubkey,
+    pub fraction_mint: Pubkey,    // Added to track fraction token mint
+    pub fraction_amount: u64,     // Track total supply of fractions
     pub locked_at: i64,
 }
 
 impl Vault {
-    pub const LEN: usize = 8 + // discriminator
+    pub const LEN: usize = 8 +  // discriminator
         32 + // owner
         32 + // asset_id
         32 + // merkle_tree
-        8;  // locked_at
+        32 + // fraction_mint
+        8 +  // fraction_amount
+        8;   // locked_at
 }
