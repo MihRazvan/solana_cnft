@@ -14,4 +14,14 @@ pub enum ErrorCode {
     MerkleProofVerificationFailed,
     #[msg("NFT not in vault")]
     NFTNotInVault,
+    #[msg("Invalid tree owner")]
+    InvalidTreeOwner,
+    #[msg("Invalid tree state")]
+    InvalidTreeState,
+    #[msg("Tree update failed")]
+    TreeUpdateFailed,
+    #[msg("Invalid proof")]
+    InvalidProof,
+    #[msg("Invalid canopy state")]
+    InvalidCanopyState,
 }

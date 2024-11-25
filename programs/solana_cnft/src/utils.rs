@@ -1,10 +1,11 @@
+// utils.rs
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke, instruction::AccountMeta},
 };
 use mpl_bubblegum::{
     state::TreeConfig,
-    types::MetadataArgs,
+    types::MetadataArgs,  
 };
 use spl_account_compression::Node;
 
@@ -27,7 +28,7 @@ pub fn transfer_compressed_nft<'info>(
     let mut accounts = Vec::with_capacity(8 + proof_accounts.len());
     accounts.extend([
         AccountMeta::new_readonly(tree_authority.key(), false),
-        AccountMeta::new_readonly(from_owner.key(), true),
+        AccountMeta::new_readonly(from_owner.key(), true), 
         AccountMeta::new_readonly(from_owner.key(), false), // delegate
         AccountMeta::new_readonly(to_owner, false),
         AccountMeta::new(merkle_tree.key(), false),
@@ -61,7 +62,7 @@ pub fn transfer_compressed_nft<'info>(
     account_infos.extend([
         tree_authority.clone(),
         from_owner.clone(),
-        from_owner.clone(),
+        from_owner.clone(), // delegate
         merkle_tree.clone(),
         log_wrapper.clone(),
         compression_program.clone(),
@@ -80,7 +81,7 @@ pub fn transfer_compressed_nft<'info>(
 pub fn verify_merkle_proof(
     merkle_tree: &AccountInfo,
     root: [u8; 32],
-    leaf: Node,
+    leaf: Node, 
     index: u32,
     proof_accounts: &[AccountInfo],
 ) -> Result<()> {
@@ -113,7 +114,7 @@ pub fn verify_merkle_proof(
     ).map_err(|_| error!(crate::error::ErrorCode::MerkleProofVerificationFailed))
 }
 
-/// Get asset ID (matches mpl-bubblegum implementation)
+/// Get asset ID for a cNFT
 pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
     Pubkey::find_program_address(
         &[
@@ -137,7 +138,7 @@ pub fn get_vault_address(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
     ).0
 }
 
-/// Get fraction mint authority PDA
+/// Get fraction mint authority PDA 
 pub fn get_fraction_authority() -> Pubkey {
     Pubkey::find_program_address(
         &[crate::solana_cnft::AUTHORITY_PREFIX],
@@ -163,9 +164,46 @@ pub fn validate_metadata(
         let computed_creator_hash = mpl_bubblegum::hash::hash_creators(&metadata.creators)?;
         require!(
             computed_creator_hash == creator_hash,
-            crate::error::ErrorCode::DataHashMismatch
+            crate::error::ErrorCode::DataHashMismatch  
         );
     }
 
     Ok(())
+}
+
+/// Verify merkle tree state and configuration
+pub fn verify_tree_state(
+    merkle_tree: &AccountInfo,
+    tree_authority: &Account<TreeConfig>,
+    max_depth: u32,
+    max_buffer_size: u32,
+) -> Result<()> {
+    // Verify merkle tree ownership
+    require!(
+        merkle_tree.owner == &spl_account_compression::id(),
+        crate::error::ErrorCode::InvalidTreeOwner
+    );
+
+    // Verify tree authority derivation
+    let (expected_authority, _) = Pubkey::find_program_address(
+        &[merkle_tree.key().as_ref()],
+        &mpl_bubblegum::id(),
+    );
+    require!(
+        tree_authority.key() == expected_authority,
+        crate::error::ErrorCode::InvalidTreeAuthority
+    );
+
+    // Verify tree configuration
+    require!(
+        tree_authority.total_mint_capacity == 1 << max_depth,
+        crate::error::ErrorCode::InvalidTreeState
+    );
+
+    Ok(())
+}
+
+/// Helper to get canonical bump for PDAs
+pub fn get_canonical_bump(seeds: &[&[u8]], program_id: &Pubkey) -> u8 {
+    Pubkey::find_program_address(seeds, program_id).1
 }

@@ -2020,6 +2020,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "mpl-bubblegum",
+ "solana-program",
  "spl-account-compression",
 ]
 
