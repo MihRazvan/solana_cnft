@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    token::{Token, TokenAccount, Mint},
+    token::{Token, TokenAccount, Mint, mint_to},
     associated_token::AssociatedToken,
 };
 use mpl_bubblegum::{
@@ -36,11 +36,10 @@ pub struct LockCNFT<'info> {
         seeds::program = bubblegum_program.key(),
         bump,
     )]
-    /// CHECK: Validated by seeds
     pub tree_authority: Account<'info, TreeConfig>,
 
-    /// CHECK: Validated through cpi
     #[account(mut)]
+    /// CHECK: Validated through CPI
     pub merkle_tree: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -97,33 +96,34 @@ pub fn handler(
     vault.index = index;
     vault.locked_at = Clock::get()?.unix_timestamp;
 
-    // Create leaf schema for previous and new state
-    let previous_leaf = LeafSchema::V1 {
-        id: crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), nonce),
-        owner: ctx.accounts.owner.key(),
-        delegate: ctx.accounts.owner.key(),
+    // Create leaf schema
+    let asset_id = crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), nonce);
+    let previous_leaf = LeafSchema::new_v0(
+        asset_id,
+        ctx.accounts.owner.key(),
+        ctx.accounts.owner.key(),
         nonce,
         data_hash,
         creator_hash,
-    };
+    );
 
     let vault_key = vault.key();
-    let new_leaf = LeafSchema::V1 {
-        id: crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), nonce),
-        owner: vault_key,
-        delegate: vault_key,
+    let new_leaf = LeafSchema::new_v0(
+        asset_id,
+        vault_key,
+        vault_key,
         nonce,
         data_hash,
         creator_hash,
-    };
+    );
 
     // Log state change
     wrap_application_data_v1(
-        new_leaf.try_to_vec()?,
+        new_leaf.to_event().try_to_vec()?,
         &ctx.accounts.log_wrapper.to_account_info(),
     )?;
 
-    // Transfer NFT to vault via CPI to Bubblegum
+    // Transfer NFT to vault via CPI
     crate::utils::transfer_compressed_nft(
         ctx.accounts.bubblegum_program.to_account_info(),
         ctx.accounts.tree_authority.to_account_info(),
@@ -139,8 +139,11 @@ pub fn handler(
         ctx.remaining_accounts,
     )?;
 
+    // Calculate unique fraction amount based on asset hash
+    let fraction_amount = crate::utils::calculate_fraction_amount(&data_hash, creator_hash);
+
     // Mint fractions to owner
-    anchor_spl::token::mint_to(
+    mint_to(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::MintTo {
@@ -153,7 +156,7 @@ pub fn handler(
                 &[*ctx.bumps.get("authority").unwrap()]
             ]],
         ),
-        crate::solana_cnft::FRACTION_AMOUNT,
+        fraction_amount,
     )?;
 
     msg!("cNFT locked in vault: {}", vault.key());
