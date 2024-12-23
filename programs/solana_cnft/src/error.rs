@@ -24,4 +24,6 @@ pub enum ErrorCode {
     InvalidProof,
     #[msg("Invalid canopy state")]
     InvalidCanopyState,
+    #[msg("Insufficient fraction token balance")]
+    InsufficientFractionBalance,
 }
