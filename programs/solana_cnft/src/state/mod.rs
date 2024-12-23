@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
-use mpl_bubblegum::{
-    state::TreeConfig,
-    types::MetadataArgs,
-};
+use mpl_bubblegum::program::ID as BUBBLEGUM_ID;
+use spl_account_compression::program::ID as COMPRESSION_ID;
 
 #[account]
 pub struct Vault {

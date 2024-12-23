@@ -4,15 +4,18 @@ use anchor_spl::{
     associated_token::AssociatedToken,
 };
 use mpl_bubblegum::{
-    state::TreeConfig,
-    types::MetadataArgs,
-    hash::{hash_metadata, hash_creators},
+    program::ID as BUBBLEGUM_ID,
+    types::{MetadataArgs, LeafSchema},
 };
-use spl_account_compression::{program::SplAccountCompression, wrap_application_data_v1, Noop};
+use spl_account_compression::program::ID as COMPRESSION_ID;
 
-use crate::{error::ErrorCode, state::Vault};
+use crate::{
+    error::ErrorCode, 
+    state::Vault,
+    utils::{hash_metadata, transfer_compressed_nft}
+};
 
-#[derive(Accounts)]
+#[derive(Accounts, Bumps)]
 #[instruction(asset_id: Pubkey)]
 pub struct LockCNFT<'info> {
     #[account(mut)]

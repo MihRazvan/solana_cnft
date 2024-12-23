@@ -1,12 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     token::{Token, TokenAccount, Mint, burn},
-    associated_token::AssociatedToken,
 };
-use mpl_bubblegum::state::TreeConfig;
-use spl_account_compression::{program::SplAccountCompression, wrap_application_data_v1, Noop};
-
-use crate::{error::ErrorCode, state::Vault};
+use mpl_bubblegum::{
+    program::ID as BUBBLEGUM_ID,
+    types::LeafSchema,
+};
+use spl_account_compression::program::ID as COMPRESSION_ID;
 
 #[derive(Accounts)]
 pub struct UnlockCNFT<'info> {

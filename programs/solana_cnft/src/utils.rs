@@ -1,13 +1,10 @@
-// utils.rs
-use anchor_lang::{
-    prelude::*,
-    solana_program::{program::invoke, instruction::AccountMeta},
-};
+use anchor_lang::prelude::*;
+use solana_program::keccak;
 use mpl_bubblegum::{
-    state::TreeConfig,
-    types::MetadataArgs,  
+    program::ID as BUBBLEGUM_ID,
+    types::{MetadataArgs, LeafSchema},
 };
-use spl_account_compression::Node;
+use spl_account_compression::program::ID as COMPRESSION_ID;
 
 /// Transfers a compressed NFT by calling Bubblegum's transfer instruction
 pub fn transfer_compressed_nft<'info>(
@@ -52,7 +49,7 @@ pub fn transfer_compressed_nft<'info>(
 
     // Build transfer instruction
     let transfer_ix = solana_program::instruction::Instruction {
-        program_id: mpl_bubblegum::id(),
+        program_id: mpl_bubblegum::ID(),
         accounts,
         data,
     };
@@ -122,7 +119,7 @@ pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
             merkle_tree.as_ref(),
             &nonce.to_le_bytes(),
         ],
-        &mpl_bubblegum::id(),
+        &mpl_bubblegum::ID(),
     ).0
 }
 
@@ -187,7 +184,7 @@ pub fn verify_tree_state(
     // Verify tree authority derivation
     let (expected_authority, _) = Pubkey::find_program_address(
         &[merkle_tree.key().as_ref()],
-        &mpl_bubblegum::id(),
+        &mpl_bubblegum::ID(),
     );
     require!(
         tree_authority.key() == expected_authority,
