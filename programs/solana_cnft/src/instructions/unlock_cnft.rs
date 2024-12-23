@@ -31,11 +31,10 @@ pub struct UnlockCNFT<'info> {
         seeds::program = bubblegum_program.key(),
         bump,
     )]
-    /// CHECK: Validated by seeds
     pub tree_authority: Account<'info, TreeConfig>,
 
-    /// CHECK: Validated through cpi
     #[account(mut)]
+    /// CHECK: Validated through CPI
     pub merkle_tree: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -58,29 +57,37 @@ pub struct UnlockCNFT<'info> {
 pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
     let vault = &ctx.accounts.vault;
     let vault_key = vault.key();
+    
+    // Verify owner has all fractions
+    let fraction_amount = crate::utils::calculate_fraction_amount(&vault.data_hash, vault.creator_hash);
+    require!(
+        ctx.accounts.owner_fraction_account.amount >= fraction_amount,
+        ErrorCode::InsufficientFractionBalance
+    );
 
-    // Create leaf schema for previous and new state
-    let previous_leaf = mpl_bubblegum::state::leaf_schema::LeafSchema::V1 {
-        id: crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), vault.nonce),
-        owner: vault_key,
-        delegate: vault_key,
-        nonce: vault.nonce,
-        data_hash: vault.data_hash,
-        creator_hash: vault.creator_hash,
-    };
+    // Create leaf schema for transfer
+    let asset_id = crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), vault.nonce);
+    let previous_leaf = LeafSchema::new_v0(
+        asset_id,
+        vault_key,
+        vault_key,
+        vault.nonce,
+        vault.data_hash,
+        vault.creator_hash,
+    );
 
-    let new_leaf = mpl_bubblegum::state::leaf_schema::LeafSchema::V1 {
-        id: crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), vault.nonce),
-        owner: ctx.accounts.owner.key(),
-        delegate: ctx.accounts.owner.key(),
-        nonce: vault.nonce,
-        data_hash: vault.data_hash,
-        creator_hash: vault.creator_hash,
-    };
+    let new_leaf = LeafSchema::new_v0(
+        asset_id,
+        ctx.accounts.owner.key(),
+        ctx.accounts.owner.key(),
+        vault.nonce,
+        vault.data_hash,
+        vault.creator_hash,
+    );
 
     // Log state change
     wrap_application_data_v1(
-        new_leaf.try_to_vec()?,
+        new_leaf.to_event().try_to_vec()?,
         &ctx.accounts.log_wrapper.to_account_info(),
     )?;
 
@@ -110,7 +117,7 @@ pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
                 authority: ctx.accounts.owner.to_account_info(),
             },
         ),
-        crate::solana_cnft::FRACTION_AMOUNT,
+        fraction_amount,
     )?;
 
     msg!("Unlocking cNFT from vault: {}", vault_key);
