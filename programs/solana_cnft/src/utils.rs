@@ -207,3 +207,14 @@ pub fn verify_tree_state(
 pub fn get_canonical_bump(seeds: &[&[u8]], program_id: &Pubkey) -> u8 {
     Pubkey::find_program_address(seeds, program_id).1
 }
+
+pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) -> u64 {
+    // Use both hashes to generate unique but deterministic amount
+    let combined = [data_hash, creator_hash].concat();
+    let hash = keccak::hashv(&[&combined]);
+    let first_8_bytes = &hash.to_bytes()[0..8];
+    let base_amount = u64::from_le_bytes(first_8_bytes.try_into().unwrap());
+    
+    // Ensure amount is within reasonable range (100-10000)
+    (base_amount % 9900) + 100
+}
