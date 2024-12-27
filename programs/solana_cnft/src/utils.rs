@@ -136,3 +136,39 @@ pub fn validate_metadata(
 
     Ok(())
 }
+
+pub fn transfer_compressed_nft<'info>(
+    bubblegum_program: AccountInfo<'info>,
+    tree_authority: AccountInfo<'info>,
+    from_owner: AccountInfo<'info>,
+    to_owner: Pubkey,
+    merkle_tree: AccountInfo<'info>,
+    log_wrapper: AccountInfo<'info>,
+    compression_program: AccountInfo<'info>,
+    root: [u8; 32],
+    leaf_node: Node,
+    new_leaf_node: Node,
+    index: u32,
+    proof_accounts: &[AccountInfo<'info>],
+) -> Result<()> {
+    let mut accounts = Vec::with_capacity(8);
+    accounts.extend([
+        AccountMeta::new_readonly(tree_authority.key(), false),
+        AccountMeta::new_readonly(from_owner.key(), true),
+        AccountMeta::new_readonly(to_owner, false),
+        AccountMeta::new(merkle_tree.key(), false),
+        AccountMeta::new_readonly(log_wrapper.key(), false),
+        AccountMeta::new_readonly(compression_program.key(), false),
+        AccountMeta::new_readonly(System::id(), false),
+    ]);
+    accounts.extend(proof_accounts.iter().map(|a| AccountMeta::new_readonly(a.key(), false)));
+
+    invoke(
+        &Instruction {
+            program_id: MPL_BUBBLEGUM_ID,
+            accounts,
+            data: [root, leaf_node, new_leaf_node, index.to_le_bytes()].concat(),
+        },
+        &[tree_authority, from_owner, merkle_tree, log_wrapper, compression_program]
+    ).map_err(Into::into)
+}
