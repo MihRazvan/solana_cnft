@@ -1,9 +1,10 @@
 use anchor_lang::prelude::*;
+use solana_program::{keccak, program::invoke};
 use mpl_bubblegum::{
-    hash::{hash_metadata, hash_creators},
-    accounts::TreeConfig,
     programs::MPL_BUBBLEGUM_ID,
+    accounts::TreeConfig,
     types::MetadataArgs,
+    hash::{hash_metadata, hash_creators},
 };
 use spl_account_compression::{
     programs::SPL_ACCOUNT_COMPRESSION_ID,
@@ -79,43 +80,6 @@ pub fn transfer_compressed_nft<'info>(
     ).map_err(Into::into)
 }
 
-/// Verifies a merkle proof
-pub fn verify_merkle_proof(
-    merkle_tree: &AccountInfo,
-    root: [u8; 32],
-    leaf: Node, 
-    index: u32,
-    proof_accounts: &[AccountInfo],
-) -> Result<()> {
-    // Construct accounts for verification
-    let mut accounts = Vec::with_capacity(1 + proof_accounts.len());
-    accounts.push(AccountMeta::new_readonly(merkle_tree.key(), false));
-    
-    // Add proof accounts
-    for proof_account in proof_accounts.iter() {
-        accounts.push(AccountMeta::new_readonly(proof_account.key(), false));
-    }
-
-    // Build verify instruction
-    let verify_ix = spl_account_compression::instruction::verify_leaf(
-        merkle_tree.key(),
-        root,
-        leaf,
-        index,
-    );
-
-    // Collect account infos  
-    let mut account_infos = Vec::with_capacity(1 + proof_accounts.len());
-    account_infos.push(merkle_tree.clone());
-    account_infos.extend(proof_accounts.iter().cloned());
-
-    // Execute verification
-    invoke(
-        &verify_ix,
-        &account_infos
-    ).map_err(|_| error!(crate::error::ErrorCode::MerkleProofVerificationFailed))
-}
-
 /// Get asset ID for a cNFT
 pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
     Pubkey::find_program_address(
@@ -171,52 +135,4 @@ pub fn validate_metadata(
     }
 
     Ok(())
-}
-
-/// Verify merkle tree state and configuration
-pub fn verify_tree_state(
-    merkle_tree: &AccountInfo,
-    tree_authority: &Account<TreeConfig>,
-    max_depth: u32,
-    max_buffer_size: u32,
-) -> Result<()> {
-    // Verify merkle tree ownership
-    require!(
-        merkle_tree.owner == &spl_account_compression::id(),
-        crate::error::ErrorCode::InvalidTreeOwner
-    );
-
-    // Verify tree authority derivation
-    let (expected_authority, _) = Pubkey::find_program_address(
-        &[merkle_tree.key().as_ref()],
-        &mpl_bubblegum::ID(),
-    );
-    require!(
-        tree_authority.key() == expected_authority,
-        crate::error::ErrorCode::InvalidTreeAuthority
-    );
-
-    // Verify tree configuration
-    require!(
-        tree_authority.total_mint_capacity == 1 << max_depth,
-        crate::error::ErrorCode::InvalidTreeState
-    );
-
-    Ok(())
-}
-
-/// Helper to get canonical bump for PDAs
-pub fn get_canonical_bump(seeds: &[&[u8]], program_id: &Pubkey) -> u8 {
-    Pubkey::find_program_address(seeds, program_id).1
-}
-
-pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) -> u64 {
-    // Use both hashes to generate unique but deterministic amount
-    let combined = [data_hash, creator_hash].concat();
-    let hash = keccak::hashv(&[&combined]);
-    let first_8_bytes = &hash.to_bytes()[0..8];
-    let base_amount = u64::from_le_bytes(first_8_bytes.try_into().unwrap());
-    
-    // Ensure amount is within reasonable range (100-10000)
-    (base_amount % 9900) + 100
 }

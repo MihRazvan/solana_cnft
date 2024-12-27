@@ -8,7 +8,6 @@ use mpl_bubblegum::{
 use spl_account_compression::{
     programs::SPL_ACCOUNT_COMPRESSION_ID,
     Noop,
-    Node,
 };
 
 #[derive(Accounts)]

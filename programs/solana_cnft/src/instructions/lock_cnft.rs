@@ -7,11 +7,11 @@ use mpl_bubblegum::{
     programs::{MPL_BUBBLEGUM_ID, SPL_NOOP_ID},
     accounts::TreeConfig,
     types::{MetadataArgs, LeafSchema},
+    hash::hash_metadata,
 };
 use spl_account_compression::{
     programs::SPL_ACCOUNT_COMPRESSION_ID,
     Noop,
-    Node,
 };
 
 #[derive(Accounts, Bumps)]
