@@ -1,3 +1,4 @@
+use anchor_lang::prelude::*;
 use mpl_bubblegum::programs::MPL_BUBBLEGUM_ID;
 use spl_account_compression::programs::SPL_ACCOUNT_COMPRESSION_ID;
 
