@@ -1,5 +1,5 @@
-use anchor_lang::{prelude::*, solana_program::keccak};
-use mpl_bubblegum::program::ID as BUBBLEGUM_ID;
+use mpl_bubblegum::programs::MPL_BUBBLEGUM_ID;
+use spl_account_compression::programs::SPL_ACCOUNT_COMPRESSION_ID;
 
 pub mod instructions;
 pub mod state;

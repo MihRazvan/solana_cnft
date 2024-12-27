@@ -1,19 +1,9 @@
-use anchor_lang::prelude::*;
-use anchor_spl::{
-    token::{Token, TokenAccount, Mint, mint_to},
-    associated_token::AssociatedToken,
-};
 use mpl_bubblegum::{
-    program::ID as BUBBLEGUM_ID,
+    accounts::TreeConfig,
+    programs::{MPL_BUBBLEGUM_ID, SPL_NOOP_ID},
     types::{MetadataArgs, LeafSchema},
 };
-use spl_account_compression::program::ID as COMPRESSION_ID;
-
-use crate::{
-    error::ErrorCode, 
-    state::Vault,
-    utils::{hash_metadata, transfer_compressed_nft}
-};
+use spl_account_compression::{program::ID as COMPRESSION_ID, Noop, Node};
 
 #[derive(Accounts, Bumps)]
 #[instruction(asset_id: Pubkey)]

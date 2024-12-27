@@ -1,10 +1,9 @@
-use anchor_lang::prelude::*;
-use solana_program::keccak;
 use mpl_bubblegum::{
-    program::ID as BUBBLEGUM_ID,
-    types::{MetadataArgs, LeafSchema},
+    hash::{hash_metadata, hash_creators},
+    accounts::TreeConfig,
+    programs::MPL_BUBBLEGUM_ID,
 };
-use spl_account_compression::program::ID as COMPRESSION_ID;
+use spl_account_compression::{Node, programs::SPL_ACCOUNT_COMPRESSION_ID};
 
 /// Transfers a compressed NFT by calling Bubblegum's transfer instruction
 pub fn transfer_compressed_nft<'info>(
