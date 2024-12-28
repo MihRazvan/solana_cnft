@@ -8,14 +8,21 @@ use mpl_bubblegum::{
     accounts::TreeConfig,
     types::{MetadataArgs, LeafSchema},
     hash::hash_metadata,
+    instructions::TransferCpiBuilder,
 };
 use spl_account_compression::{
     programs::SPL_ACCOUNT_COMPRESSION_ID,
     Noop,
 };
 
-#[derive(Accounts, Bumps)]
-#[instruction(asset_id: Pubkey)]
+use crate::{
+    error::ErrorCode,
+    state::Vault,
+    utils::{calculate_fraction_amount, validate_metadata},
+};
+
+#[derive(Accounts)]
+#[instruction(metadata: MetadataArgs)]
 pub struct LockCNFT<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -80,48 +87,61 @@ pub fn handler(
     nonce: u64,
     index: u32,
 ) -> Result<()> {
+    // Validate metadata and hashes
+    validate_metadata(&metadata, data_hash, creator_hash)?;
+
+    // Initialize vault data
     let vault = &mut ctx.accounts.vault;
     vault.owner = ctx.accounts.owner.key();
     vault.merkle_tree = ctx.accounts.merkle_tree.key();
     vault.root = root;
     vault.data_hash = data_hash;
+    vault.creator_hash = creator_hash;
     vault.nonce = nonce;
     vault.index = index;
+    vault.locked_at = Clock::get()?.unix_timestamp;
 
-    let asset_id = get_asset_id(&ctx.accounts.merkle_tree.key(), nonce);
-    
-    // Transfer NFT to vault using Bubblegum CPI
-    let cpi_accounts = mpl_bubblegum::cpi::accounts::Transfer {
-        tree_authority: ctx.accounts.tree_authority.to_account_info(),
-        leaf_owner: ctx.accounts.owner.to_account_info(), 
-        leaf_delegate: ctx.accounts.owner.to_account_info(),
-        new_leaf_owner: vault.key(),
-        merkle_tree: ctx.accounts.merkle_tree.to_account_info(),
-        log_wrapper: ctx.accounts.log_wrapper.to_account_info(),
-        compression_program: ctx.accounts.compression_program.to_account_info(),
-        system_program: ctx.accounts.system_program.to_account_info(),
-    };
+    // Transfer NFT to vault using CPI
+    let transfer = TransferCpiBuilder::new(ctx.accounts.bubblegum_program.to_account_info())
+        .tree_authority(ctx.accounts.tree_authority.to_account_info())
+        .leaf_owner(ctx.accounts.owner.to_account_info())
+        .leaf_delegate(ctx.accounts.owner.to_account_info())
+        .new_leaf_owner(vault.key())
+        .merkle_tree(ctx.accounts.merkle_tree.to_account_info())
+        .log_wrapper(ctx.accounts.log_wrapper.to_account_info())
+        .compression_program(ctx.accounts.compression_program.to_account_info())
+        .system_program(ctx.accounts.system_program.to_account_info())
+        .root(root)
+        .data_hash(data_hash)
+        .creator_hash(creator_hash)
+        .nonce(nonce)
+        .index(index);
 
-    let cpi_ctx = CpiContext::new(
-        ctx.accounts.bubblegum_program.to_account_info(),
-        cpi_accounts,
-    );
+    // Add proof accounts
+    for account in ctx.remaining_accounts.iter() {
+        transfer.add_remaining_account(account, false, false);
+    }
 
-    mpl_bubblegum::cpi::transfer(cpi_ctx, root, data_hash, creator_hash, nonce, index)?;
+    transfer.invoke()?;
 
-    // Mint fractions
-    let mint_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        anchor_spl::token::MintTo {
-            mint: ctx.accounts.fraction_mint.to_account_info(),
-            to: ctx.accounts.owner_fraction_account.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
-        },
-        &[&[AUTHORITY_PREFIX, &[ctx.bumps.authority]]]
-    );
-    
+    // Mint fraction tokens
     let fraction_amount = calculate_fraction_amount(&data_hash, &creator_hash);
-    anchor_spl::token::mint_to(mint_ctx, fraction_amount)?;
+    mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fraction_mint.to_account_info(),
+                to: ctx.accounts.owner_fraction_account.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
+            &[&[
+                crate::solana_cnft::AUTHORITY_PREFIX,
+                &[*ctx.bumps.get("authority").unwrap()]
+            ]],
+        ),
+        fraction_amount,
+    )?;
 
+    msg!("cNFT locked in vault: {}", vault.key());
     Ok(())
 }
