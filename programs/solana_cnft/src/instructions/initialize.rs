@@ -31,5 +31,6 @@ pub struct Initialize<'info> {
 }
 
 pub fn handler(ctx: Context<Initialize>) -> Result<()> {
+    let authority_bump = *ctx.bumps.get("authority").unwrap();
     Ok(())
 }
