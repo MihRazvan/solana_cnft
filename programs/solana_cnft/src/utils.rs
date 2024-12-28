@@ -1,12 +1,19 @@
 use anchor_lang::prelude::*;
-use solana_program::keccak;
+use solana_program::{
+    keccak,
+    system_program,
+    program::invoke,
+    instruction::{AccountMeta, Instruction},
+};
 use mpl_bubblegum::{
     ID as BUBBLEGUM_ID,
     hash::{hash_metadata, hash_creators},
     types::MetadataArgs,
 };
-use spl_account_compression::ID as COMPRESSION_ID;
 
+use crate::error::ErrorCode as ProgramError;
+
+/// Transfers a compressed NFT by calling Bubblegum's transfer instruction
 pub fn transfer_compressed_nft<'info>(
     bubblegum_program: AccountInfo<'info>,
     tree_authority: AccountInfo<'info>,
@@ -34,13 +41,20 @@ pub fn transfer_compressed_nft<'info>(
 
     accounts.extend(proof_accounts.iter().map(|a| AccountMeta::new_readonly(a.key(), false)));
 
-    let ix = solana_program::instruction::Instruction {
-        program_id: mpl_bubblegum::ID,
+    let mut data = Vec::with_capacity(32 * 3 + 8 + 4);
+    data.extend_from_slice(&root);
+    data.extend_from_slice(&data_hash);
+    data.extend_from_slice(&creator_hash);
+    data.extend_from_slice(&nonce.to_le_bytes());
+    data.extend_from_slice(&index.to_le_bytes());
+
+    let ix = Instruction {
+        program_id: BUBBLEGUM_ID,
         accounts,
-        data: [root, data_hash, creator_hash, nonce.to_le_bytes(), index.to_le_bytes()].concat()
+        data,
     };
 
-    solana_program::program::invoke(
+    invoke(
         &ix,
         &[
             tree_authority,
@@ -60,7 +74,7 @@ pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
             merkle_tree.as_ref(),
             &nonce.to_le_bytes(),
         ],
-        &MPL_BUBBLEGUM_ID,
+        &BUBBLEGUM_ID,
     ).0
 }
 
@@ -84,30 +98,31 @@ pub fn get_fraction_authority() -> Pubkey {
     ).0
 }
 
+/// Validate metadata hashes match
 pub fn validate_metadata(
     metadata: &MetadataArgs,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
 ) -> Result<()> {
-    let computed_data_hash = hash_metadata(metadata).map_err(|_| error!(ErrorCode::DataHashMismatch))?;
+    let computed_data_hash = hash_metadata(metadata);
     require!(
         computed_data_hash == data_hash,
-        ErrorCode::DataHashMismatch
+        ProgramError::DataHashMismatch
     );
 
     if !metadata.creators.is_empty() {
-        let computed_creator_hash = hash_creators(&metadata.creators).map_err(|_| error!(ErrorCode::DataHashMismatch))?;
+        let computed_creator_hash = hash_creators(&metadata.creators);
         require!(
             computed_creator_hash == creator_hash,
-            ErrorCode::DataHashMismatch
+            ProgramError::DataHashMismatch
         );
     }
 
     Ok(())
 }
 
+/// Calculate unique fraction amount based on asset hashes
 pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) -> u64 {
-    // Use both hashes to generate unique but deterministic amount
     let mut combined = Vec::with_capacity(64);
     combined.extend_from_slice(data_hash);
     combined.extend_from_slice(creator_hash);
@@ -116,6 +131,6 @@ pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) 
     let first_8_bytes = &hash.to_bytes()[0..8];
     let base_amount = u64::from_le_bytes(first_8_bytes.try_into().unwrap());
     
-    // Ensure amount is within reasonable range (100-10000)
+    // Range: 100-10000
     (base_amount % 9900) + 100
 }
