@@ -1,13 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount, Mint, burn};
-use mpl_bubblegum::{
-    programs::{MPL_BUBBLEGUM_ID, SPL_NOOP_ID},
-    accounts::TreeConfig,
-    types::LeafSchema,
-    instructions::TransferCpiBuilder,
-};
+use mpl_bubblegum::ID as BUBBLEGUM_ID;
 use spl_account_compression::{
-    programs::SPL_ACCOUNT_COMPRESSION_ID,
+    ID as COMPRESSION_ID,
     Noop,
 };
 
@@ -37,10 +32,11 @@ pub struct UnlockCNFT<'info> {
 
     #[account(
         seeds = [merkle_tree.key().as_ref()],
-        seeds::program = bubblegum_program.key(),
+        seeds::program = BUBBLEGUM_ID,
         bump,
     )]
-    pub tree_authority: Account<'info, TreeConfig>,
+    /// CHECK: Validated through seeds
+    pub tree_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
     /// CHECK: Validated through CPI
@@ -56,9 +52,11 @@ pub struct UnlockCNFT<'info> {
     )]
     pub owner_fraction_account: Account<'info, TokenAccount>,
 
-    pub bubblegum_program: Program<'info, mpl_bubblegum::program::Bubblegum>,
+    /// CHECK: Bubblegum program
+    pub bubblegum_program: Program<'info, Noop>,
     pub log_wrapper: Program<'info, Noop>,
-    pub compression_program: Program<'info, SplAccountCompression>,
+    /// CHECK: Compression program
+    pub compression_program: Program<'info, Noop>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
@@ -73,30 +71,24 @@ pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
         ErrorCode::InsufficientFractionBalance
     );
 
-    // Transfer NFT back to owner using CPI
-    let transfer = TransferCpiBuilder::new(ctx.accounts.bubblegum_program.to_account_info())
-        .tree_authority(ctx.accounts.tree_authority.to_account_info())
-        .leaf_owner(vault.to_account_info())
-        .leaf_delegate(vault.to_account_info())
-        .new_leaf_owner(ctx.accounts.owner.key())
-        .merkle_tree(ctx.accounts.merkle_tree.to_account_info())
-        .log_wrapper(ctx.accounts.log_wrapper.to_account_info())
-        .compression_program(ctx.accounts.compression_program.to_account_info())
-        .system_program(ctx.accounts.system_program.to_account_info())
-        .root(vault.root)
-        .data_hash(vault.data_hash)
-        .creator_hash(vault.creator_hash)
-        .nonce(vault.nonce)
-        .index(vault.index);
+    // Transfer NFT back using CPI
+    crate::utils::transfer_compressed_nft(
+        ctx.accounts.bubblegum_program.to_account_info(),
+        ctx.accounts.tree_authority.to_account_info(),
+        vault.to_account_info(),
+        ctx.accounts.owner.key(),
+        ctx.accounts.merkle_tree.to_account_info(),
+        ctx.accounts.log_wrapper.to_account_info(),
+        ctx.accounts.compression_program.to_account_info(),
+        vault.root,
+        vault.data_hash,
+        vault.creator_hash,
+        vault.nonce,
+        vault.index,
+        ctx.remaining_accounts,
+    )?;
 
-    // Add proof accounts
-    for account in ctx.remaining_accounts.iter() {
-        transfer.add_remaining_account(account, false, false);
-    }
-
-    transfer.invoke()?;
-
-    // Burn fraction tokens
+    // Burn fractions
     burn(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),

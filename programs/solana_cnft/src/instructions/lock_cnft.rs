@@ -4,14 +4,12 @@ use anchor_spl::{
     associated_token::AssociatedToken,
 };
 use mpl_bubblegum::{
-    programs::{MPL_BUBBLEGUM_ID, SPL_NOOP_ID},
-    accounts::TreeConfig,
-    types::{MetadataArgs, LeafSchema},
+    ID as BUBBLEGUM_ID,
     hash::hash_metadata,
-    instructions::TransferCpiBuilder,
+    types::MetadataArgs,
 };
 use spl_account_compression::{
-    programs::SPL_ACCOUNT_COMPRESSION_ID,
+    ID as COMPRESSION_ID,
     Noop,
 };
 
@@ -22,7 +20,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
-#[instruction(metadata: MetadataArgs)]
+#[instruction(metadata: MetadataArgs, nonce: u64)]
 pub struct LockCNFT<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -42,10 +40,11 @@ pub struct LockCNFT<'info> {
 
     #[account(
         seeds = [merkle_tree.key().as_ref()],
-        seeds::program = bubblegum_program.key(),
+        seeds::program = BUBBLEGUM_ID,
         bump,
     )]
-    pub tree_authority: Account<'info, TreeConfig>,
+    /// CHECK: Validated through seeds
+    pub tree_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
     /// CHECK: Validated through CPI
@@ -69,9 +68,11 @@ pub struct LockCNFT<'info> {
     )]
     pub authority: UncheckedAccount<'info>,
 
-    pub bubblegum_program: Program<'info, mpl_bubblegum::program::Bubblegum>,
+    /// CHECK: Bubblegum program
+    pub bubblegum_program: Program<'info, Noop>,
     pub log_wrapper: Program<'info, Noop>,
-    pub compression_program: Program<'info, SplAccountCompression>,
+    /// CHECK: Compression program
+    pub compression_program: Program<'info, Noop>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -87,7 +88,7 @@ pub fn handler(
     nonce: u64,
     index: u32,
 ) -> Result<()> {
-    // Validate metadata and hashes
+    // Validate metadata
     validate_metadata(&metadata, data_hash, creator_hash)?;
 
     // Initialize vault data
@@ -102,27 +103,21 @@ pub fn handler(
     vault.locked_at = Clock::get()?.unix_timestamp;
 
     // Transfer NFT to vault using CPI
-    let transfer = TransferCpiBuilder::new(ctx.accounts.bubblegum_program.to_account_info())
-        .tree_authority(ctx.accounts.tree_authority.to_account_info())
-        .leaf_owner(ctx.accounts.owner.to_account_info())
-        .leaf_delegate(ctx.accounts.owner.to_account_info())
-        .new_leaf_owner(vault.key())
-        .merkle_tree(ctx.accounts.merkle_tree.to_account_info())
-        .log_wrapper(ctx.accounts.log_wrapper.to_account_info())
-        .compression_program(ctx.accounts.compression_program.to_account_info())
-        .system_program(ctx.accounts.system_program.to_account_info())
-        .root(root)
-        .data_hash(data_hash)
-        .creator_hash(creator_hash)
-        .nonce(nonce)
-        .index(index);
-
-    // Add proof accounts
-    for account in ctx.remaining_accounts.iter() {
-        transfer.add_remaining_account(account, false, false);
-    }
-
-    transfer.invoke()?;
+    let cpi_accounts = crate::utils::transfer_compressed_nft(
+        ctx.accounts.bubblegum_program.to_account_info(),
+        ctx.accounts.tree_authority.to_account_info(),
+        ctx.accounts.owner.to_account_info(),
+        vault.key(),
+        ctx.accounts.merkle_tree.to_account_info(),
+        ctx.accounts.log_wrapper.to_account_info(),
+        ctx.accounts.compression_program.to_account_info(),
+        root,
+        data_hash,
+        creator_hash,
+        nonce,
+        index,
+        ctx.remaining_accounts,
+    )?;
 
     // Mint fraction tokens
     let fraction_amount = calculate_fraction_amount(&data_hash, &creator_hash);
