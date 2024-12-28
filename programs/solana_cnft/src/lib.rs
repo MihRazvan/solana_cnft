@@ -41,4 +41,6 @@ pub mod solana_cnft {
     pub fn unlock_cnft(ctx: Context<UnlockCNFT>) -> Result<()> {
         instructions::unlock_cnft::handler(ctx)
     }
+
+    pub const AUTHORITY_BUMP: &[u8] = b"authority_bump";
 }
