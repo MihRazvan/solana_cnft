@@ -26,4 +26,6 @@ pub enum ErrorCode {
     InvalidCanopyState,
     #[msg("Insufficient fraction token balance")]
     InsufficientFractionBalance,
+    #[msg("Invalid tree authority")]
+    InvalidTreeAuthority,
 }
