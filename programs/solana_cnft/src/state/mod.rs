@@ -88,29 +88,3 @@ pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
         &mpl_bubblegum::ID,
     ).0
 }
-
-pub fn validate_state(
-    &self,
-    merkle_tree: &AccountInfo,
-    owner: &Pubkey,
-) -> Result<()> {
-    // Validate owner
-    require!(
-        self.owner == *owner,
-        ErrorCode::InvalidOwner
-    );
-
-    // Validate merkle tree ownership
-    require!(
-        merkle_tree.owner == &spl_account_compression::id(),
-        ErrorCode::InvalidTreeOwner
-    );
-
-    // Validate tree state matches
-    require!(
-        self.merkle_tree == merkle_tree.key(),
-        ErrorCode::InvalidTreeState  
-    );
-
-    Ok(())
-}
