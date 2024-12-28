@@ -28,63 +28,34 @@ pub fn transfer_compressed_nft<'a>(
     index: u32,
     proof_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
-    // Note: changed to use references
+    let mut accounts = vec![
+        AccountMeta::new_readonly(tree_authority.key(), false),
+        AccountMeta::new_readonly(leaf_owner.key(), true),
+        AccountMeta::new_readonly(new_leaf_owner, false),
+        AccountMeta::new(merkle_tree.key(), false),
+        AccountMeta::new_readonly(log_wrapper.key(), false),
+        AccountMeta::new_readonly(compression_program.key(), false),
+        AccountMeta::new_readonly(system_program::id(), false),
+    ];
+
+    accounts.extend(proof_accounts.iter().map(|a| AccountMeta::new_readonly(a.key(), false)));
+
     let ix = Instruction {
         program_id: BUBBLEGUM_ID,
-        accounts: vec![
-            AccountMeta::new_readonly(tree_authority.key(), false),
-            AccountMeta::new_readonly(leaf_owner.key(), true),
-            AccountMeta::new_readonly(new_leaf_owner, false),
-            AccountMeta::new(merkle_tree.key(), false),
-            AccountMeta::new_readonly(log_wrapper.key(), false),
-            AccountMeta::new_readonly(compression_program.key(), false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: [root, data_hash, creator_hash, nonce.to_le_bytes(), index.to_le_bytes()].concat()
+        accounts,
+        data: create_transfer_data(root, data_hash, creator_hash, nonce, index),
     };
 
     invoke(
         &ix,
         &[
-            tree_authority,
-            leaf_owner,
-            merkle_tree,
-            log_wrapper,
-            compression_program,
+            tree_authority.clone(),
+            leaf_owner.clone(),
+            merkle_tree.clone(),
+            log_wrapper.clone(),
+            compression_program.clone(),
         ],
     ).map_err(Into::into)
-}
-
-/// Get asset ID for a cNFT
-pub fn get_asset_id(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
-    Pubkey::find_program_address(
-        &[
-            b"asset",
-            merkle_tree.as_ref(),
-            &nonce.to_le_bytes(),
-        ],
-        &BUBBLEGUM_ID,
-    ).0
-}
-
-/// Get vault PDA address 
-pub fn get_vault_address(merkle_tree: &Pubkey, nonce: u64) -> Pubkey {
-    Pubkey::find_program_address(
-        &[
-            crate::solana_cnft::VAULT_PREFIX,
-            merkle_tree.as_ref(),
-            &nonce.to_le_bytes(),
-        ],
-        &crate::ID,
-    ).0
-}
-
-/// Get fraction mint authority PDA 
-pub fn get_fraction_authority() -> Pubkey {
-    Pubkey::find_program_address(
-        &[crate::solana_cnft::AUTHORITY_PREFIX],
-        &crate::ID,
-    ).0
 }
 
 /// Validate metadata hashes match
@@ -124,4 +95,20 @@ pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) 
     
     // Range: 100-10000
     (base_amount % 9900) + 100
+}
+
+fn create_transfer_data(
+    root: [u8; 32],
+    data_hash: [u8; 32],
+    creator_hash: [u8; 32],
+    nonce: u64,
+    index: u32,
+) -> Vec<u8> {
+    let mut data = Vec::with_capacity(32 * 3 + 8 + 4);
+    data.extend_from_slice(&root);
+    data.extend_from_slice(&data_hash);
+    data.extend_from_slice(&creator_hash);
+    data.extend_from_slice(&nonce.to_le_bytes());
+    data.extend_from_slice(&index.to_le_bytes());
+    data
 }
