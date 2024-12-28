@@ -13,45 +13,34 @@ use mpl_bubblegum::{
 
 use crate::error::ErrorCode as ProgramError;
 
-/// Transfers a compressed NFT by calling Bubblegum's transfer instruction
-pub fn transfer_compressed_nft<'info>(
-    bubblegum_program: AccountInfo<'info>,
-    tree_authority: AccountInfo<'info>,
-    leaf_owner: AccountInfo<'info>,
+pub fn transfer_compressed_nft<'a>(
+    bubblegum_program: &AccountInfo<'a>,
+    tree_authority: &AccountInfo<'a>,
+    leaf_owner: &AccountInfo<'a>,
     new_leaf_owner: Pubkey,
-    merkle_tree: AccountInfo<'info>,
-    log_wrapper: AccountInfo<'info>,
-    compression_program: AccountInfo<'info>,
+    merkle_tree: &AccountInfo<'a>,
+    log_wrapper: &AccountInfo<'a>,
+    compression_program: &AccountInfo<'a>,
     root: [u8; 32],
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
     nonce: u64,
     index: u32,
-    proof_accounts: &[AccountInfo<'info>],
+    proof_accounts: &[AccountInfo<'a>],
 ) -> Result<()> {
-    let mut accounts = vec![
-        AccountMeta::new_readonly(tree_authority.key(), false),
-        AccountMeta::new_readonly(leaf_owner.key(), true),
-        AccountMeta::new_readonly(new_leaf_owner, false),
-        AccountMeta::new(merkle_tree.key(), false),
-        AccountMeta::new_readonly(log_wrapper.key(), false),
-        AccountMeta::new_readonly(compression_program.key(), false),
-        AccountMeta::new_readonly(system_program::id(), false),
-    ];
-
-    accounts.extend(proof_accounts.iter().map(|a| AccountMeta::new_readonly(a.key(), false)));
-
-    let mut data = Vec::with_capacity(32 * 3 + 8 + 4);
-    data.extend_from_slice(&root);
-    data.extend_from_slice(&data_hash);
-    data.extend_from_slice(&creator_hash);
-    data.extend_from_slice(&nonce.to_le_bytes());
-    data.extend_from_slice(&index.to_le_bytes());
-
+    // Note: changed to use references
     let ix = Instruction {
         program_id: BUBBLEGUM_ID,
-        accounts,
-        data,
+        accounts: vec![
+            AccountMeta::new_readonly(tree_authority.key(), false),
+            AccountMeta::new_readonly(leaf_owner.key(), true),
+            AccountMeta::new_readonly(new_leaf_owner, false),
+            AccountMeta::new(merkle_tree.key(), false),
+            AccountMeta::new_readonly(log_wrapper.key(), false),
+            AccountMeta::new_readonly(compression_program.key(), false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: [root, data_hash, creator_hash, nonce.to_le_bytes(), index.to_le_bytes()].concat()
     };
 
     invoke(
@@ -104,13 +93,15 @@ pub fn validate_metadata(
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
 ) -> Result<()> {
-    let computed_data_hash = hash_metadata(metadata);
+    // hash_metadata returns a Result, so we need to handle it
+    let computed_data_hash = hash_metadata(metadata)?;
     require!(
         computed_data_hash == data_hash,
         ProgramError::DataHashMismatch
     );
 
     if !metadata.creators.is_empty() {
+        // hash_creators returns [u8; 32] directly
         let computed_creator_hash = hash_creators(&metadata.creators);
         require!(
             computed_creator_hash == creator_hash,

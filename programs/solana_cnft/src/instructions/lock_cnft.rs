@@ -103,21 +103,21 @@ pub fn handler(
     vault.locked_at = Clock::get()?.unix_timestamp;
 
     // Transfer NFT to vault using CPI
-    let cpi_accounts = crate::utils::transfer_compressed_nft(
-        ctx.accounts.bubblegum_program.to_account_info(),
-        ctx.accounts.tree_authority.to_account_info(),
-        ctx.accounts.owner.to_account_info(),
-        vault.key(),
-        ctx.accounts.merkle_tree.to_account_info(),
-        ctx.accounts.log_wrapper.to_account_info(),
-        ctx.accounts.compression_program.to_account_info(),
-        root,
-        data_hash,
-        creator_hash,
-        nonce,
-        index,
-        ctx.remaining_accounts,
-    )?;
+crate::utils::transfer_compressed_nft(
+    &ctx.accounts.bubblegum_program.to_account_info(),
+    &ctx.accounts.tree_authority.to_account_info(),
+    &ctx.accounts.owner.to_account_info(),
+    vault.key(),
+    &ctx.accounts.merkle_tree.to_account_info(),
+    &ctx.accounts.log_wrapper.to_account_info(),
+    &ctx.accounts.compression_program.to_account_info(),
+    root,
+    data_hash,
+    creator_hash,
+    nonce,
+    index,
+    ctx.remaining_accounts,
+)?;
 
     // Mint fraction tokens
     let fraction_amount = calculate_fraction_amount(&data_hash, &creator_hash);

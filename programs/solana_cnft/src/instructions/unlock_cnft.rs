@@ -71,22 +71,22 @@ pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
         ErrorCode::InsufficientFractionBalance
     );
 
-    // Transfer NFT back using CPI
-    crate::utils::transfer_compressed_nft(
-        ctx.accounts.bubblegum_program.to_account_info(),
-        ctx.accounts.tree_authority.to_account_info(),
-        vault.to_account_info(),
-        ctx.accounts.owner.key(),
-        ctx.accounts.merkle_tree.to_account_info(),
-        ctx.accounts.log_wrapper.to_account_info(),
-        ctx.accounts.compression_program.to_account_info(),
-        vault.root,
-        vault.data_hash,
-        vault.creator_hash,
-        vault.nonce,
-        vault.index,
-        ctx.remaining_accounts,
-    )?;
+  // Transfer NFT back using CPI
+crate::utils::transfer_compressed_nft(
+    &ctx.accounts.bubblegum_program.to_account_info(),
+    &ctx.accounts.tree_authority.to_account_info(),
+    &vault.to_account_info(),
+    ctx.accounts.owner.key(),
+    &ctx.accounts.merkle_tree.to_account_info(),
+    &ctx.accounts.log_wrapper.to_account_info(),
+    &ctx.accounts.compression_program.to_account_info(),
+    vault.root,
+    vault.data_hash,
+    vault.creator_hash,
+    vault.nonce,
+    vault.index,
+    ctx.remaining_accounts,
+)?;
 
     // Burn fractions
     burn(
