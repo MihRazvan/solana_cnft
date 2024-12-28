@@ -130,9 +130,9 @@ pub fn handler(
                 authority: ctx.accounts.authority.to_account_info(),
             },
             &[&[
-                crate::solana_cnft::AUTHORITY_PREFIX,
-                &[*ctx.bumps.get("authority").unwrap()]
-            ]],
+    crate::solana_cnft::AUTHORITY_PREFIX,
+    &[ctx.bumps.authority]
+]],
         ),
         fraction_amount,
     )?;

@@ -75,14 +75,13 @@ pub fn get_fraction_authority() -> Pubkey {
     ).0
 }
 
-/// Validate metadata hashes match
 pub fn validate_metadata(
     metadata: &MetadataArgs,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
 ) -> Result<()> {
     // Validate data hash
-    let computed_data_hash = hash_metadata(metadata)?;
+    let computed_data_hash = hash_metadata(metadata);
     require!(
         computed_data_hash == data_hash,
         crate::error::ErrorCode::DataHashMismatch
@@ -90,7 +89,7 @@ pub fn validate_metadata(
 
     // Validate creator hash if creators exist
     if !metadata.creators.is_empty() {
-        let computed_creator_hash = hash_creators(&metadata.creators)?;
+        let computed_creator_hash = hash_creators(&metadata.creators);
         require!(
             computed_creator_hash == creator_hash,
             crate::error::ErrorCode::DataHashMismatch  
@@ -100,16 +99,16 @@ pub fn validate_metadata(
     Ok(())
 }
 
-/// Calculate unique fraction amount for a cNFT based on its hashes
 pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) -> u64 {
-    // Combine both hashes to ensure uniqueness
-    let combined = [data_hash, creator_hash].concat();
-    let hash = keccak::hashv(&[&combined]);
+    // Use both hashes to generate unique but deterministic amount
+    let mut combined = Vec::with_capacity(64);
+    combined.extend_from_slice(data_hash);
+    combined.extend_from_slice(creator_hash);
     
-    // Use first 8 bytes as a basis for amount
+    let hash = keccak::hashv(&[&combined]);
     let first_8_bytes = &hash.to_bytes()[0..8];
     let base_amount = u64::from_le_bytes(first_8_bytes.try_into().unwrap());
     
-    // Range: 100-10000
+    // Ensure amount is within reasonable range (100-10000)
     (base_amount % 9900) + 100
 }
