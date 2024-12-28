@@ -58,70 +58,44 @@ pub struct UnlockCNFT<'info> {
 
 pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
     let vault = &ctx.accounts.vault;
-    let vault_key = vault.key();
     
-    // Verify owner has all fractions
-    let fraction_amount = crate::utils::calculate_fraction_amount(&vault.data_hash, vault.creator_hash);
+    // Verify fractions
+    let fraction_amount = calculate_fraction_amount(&vault.data_hash, &vault.creator_hash);
     require!(
         ctx.accounts.owner_fraction_account.amount >= fraction_amount,
         ErrorCode::InsufficientFractionBalance
     );
 
-    // Create leaf schema for transfer
-    let asset_id = crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), vault.nonce);
-    let previous_leaf = LeafSchema::new_v0(
-        asset_id,
-        vault_key,
-        vault_key,
-        vault.nonce,
-        vault.data_hash,
-        vault.creator_hash,
-    );
+    // Transfer NFT back using Bubblegum CPI  
+    let cpi_accounts = mpl_bubblegum::cpi::accounts::Transfer {
+        tree_authority: ctx.accounts.tree_authority.to_account_info(),
+        leaf_owner: vault.to_account_info(),
+        leaf_delegate: vault.to_account_info(),
+        new_leaf_owner: ctx.accounts.owner.key(),
+        merkle_tree: ctx.accounts.merkle_tree.to_account_info(),
+        log_wrapper: ctx.accounts.log_wrapper.to_account_info(),
+        compression_program: ctx.accounts.compression_program.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
 
-    let new_leaf = LeafSchema::new_v0(
-        asset_id,
-        ctx.accounts.owner.key(),
-        ctx.accounts.owner.key(),
-        vault.nonce,
-        vault.data_hash,
-        vault.creator_hash,
-    );
-
-    // Log state change
-    wrap_application_data_v1(
-        new_leaf.to_event().try_to_vec()?,
-        &ctx.accounts.log_wrapper.to_account_info(),
-    )?;
-
-    // Transfer NFT back to owner
-    crate::utils::transfer_compressed_nft(
+    let cpi_ctx = CpiContext::new(
         ctx.accounts.bubblegum_program.to_account_info(),
-        ctx.accounts.tree_authority.to_account_info(),
-        vault_key,
-        ctx.accounts.owner.key(),
-        ctx.accounts.merkle_tree.to_account_info(),
-        ctx.accounts.log_wrapper.to_account_info(),
-        ctx.accounts.compression_program.to_account_info(),
-        vault.root,
-        previous_leaf.to_node(),
-        new_leaf.to_node(),
-        vault.index,
-        ctx.remaining_accounts,
-    )?;
+        cpi_accounts,
+    );
+
+    mpl_bubblegum::cpi::transfer(cpi_ctx, vault.root, vault.data_hash, vault.creator_hash, vault.nonce, vault.index)?;
 
     // Burn fractions
-    burn(
-        CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::Burn {
-                mint: ctx.accounts.fraction_mint.to_account_info(),
-                from: ctx.accounts.owner_fraction_account.to_account_info(),
-                authority: ctx.accounts.owner.to_account_info(),
-            },
-        ),
-        fraction_amount,
-    )?;
+    let burn_ctx = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        anchor_spl::token::Burn {
+            mint: ctx.accounts.fraction_mint.to_account_info(),
+            from: ctx.accounts.owner_fraction_account.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        }
+    );
 
-    msg!("Unlocking cNFT from vault: {}", vault_key);
+    anchor_spl::token::burn(burn_ctx, fraction_amount)?;
+
     Ok(())
 }

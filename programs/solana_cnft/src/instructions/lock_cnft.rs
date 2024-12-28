@@ -80,87 +80,48 @@ pub fn handler(
     nonce: u64,
     index: u32,
 ) -> Result<()> {
-    // Validate metadata
-    let computed_data_hash = hash_metadata(&metadata)?;
-    require!(
-        computed_data_hash == data_hash,
-        ErrorCode::DataHashMismatch
-    );
-
-    // Create vault account with compressed NFT data
     let vault = &mut ctx.accounts.vault;
     vault.owner = ctx.accounts.owner.key();
     vault.merkle_tree = ctx.accounts.merkle_tree.key();
     vault.root = root;
     vault.data_hash = data_hash;
-    vault.creator_hash = creator_hash;
     vault.nonce = nonce;
     vault.index = index;
-    vault.locked_at = Clock::get()?.unix_timestamp;
 
-    // Create leaf schema
-    let asset_id = crate::utils::get_asset_id(&ctx.accounts.merkle_tree.key(), nonce);
-    let previous_leaf = LeafSchema::new_v0(
-        asset_id,
-        ctx.accounts.owner.key(),
-        ctx.accounts.owner.key(),
-        nonce,
-        data_hash,
-        creator_hash,
-    );
+    let asset_id = get_asset_id(&ctx.accounts.merkle_tree.key(), nonce);
+    
+    // Transfer NFT to vault using Bubblegum CPI
+    let cpi_accounts = mpl_bubblegum::cpi::accounts::Transfer {
+        tree_authority: ctx.accounts.tree_authority.to_account_info(),
+        leaf_owner: ctx.accounts.owner.to_account_info(), 
+        leaf_delegate: ctx.accounts.owner.to_account_info(),
+        new_leaf_owner: vault.key(),
+        merkle_tree: ctx.accounts.merkle_tree.to_account_info(),
+        log_wrapper: ctx.accounts.log_wrapper.to_account_info(),
+        compression_program: ctx.accounts.compression_program.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+    };
 
-    let vault_key = vault.key();
-    let new_leaf = LeafSchema::new_v0(
-        asset_id,
-        vault_key,
-        vault_key,
-        nonce,
-        data_hash,
-        creator_hash,
-    );
-
-    // Log state change
-    wrap_application_data_v1(
-        new_leaf.to_event().try_to_vec()?,
-        &ctx.accounts.log_wrapper.to_account_info(),
-    )?;
-
-    // Transfer NFT to vault via CPI
-    crate::utils::transfer_compressed_nft(
+    let cpi_ctx = CpiContext::new(
         ctx.accounts.bubblegum_program.to_account_info(),
-        ctx.accounts.tree_authority.to_account_info(),
-        ctx.accounts.owner.to_account_info(),
-        vault_key,
-        ctx.accounts.merkle_tree.to_account_info(),
-        ctx.accounts.log_wrapper.to_account_info(),
-        ctx.accounts.compression_program.to_account_info(),
-        root,
-        previous_leaf.to_node(),
-        new_leaf.to_node(),
-        index,
-        ctx.remaining_accounts,
-    )?;
+        cpi_accounts,
+    );
 
-    // Calculate unique fraction amount based on asset hash
-    let fraction_amount = crate::utils::calculate_fraction_amount(&data_hash, creator_hash);
+    mpl_bubblegum::cpi::transfer(cpi_ctx, root, data_hash, creator_hash, nonce, index)?;
 
-    // Mint fractions to owner
-    mint_to(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fraction_mint.to_account_info(),
-                to: ctx.accounts.owner_fraction_account.to_account_info(),
-                authority: ctx.accounts.authority.to_account_info(),
-            },
-            &[&[
-                crate::solana_cnft::AUTHORITY_PREFIX,
-                &[*ctx.bumps.get("authority").unwrap()]
-            ]],
-        ),
-        fraction_amount,
-    )?;
+    // Mint fractions
+    let mint_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        anchor_spl::token::MintTo {
+            mint: ctx.accounts.fraction_mint.to_account_info(),
+            to: ctx.accounts.owner_fraction_account.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        },
+        &[&[AUTHORITY_PREFIX, &[ctx.bumps.authority]]]
+    );
+    
+    let fraction_amount = calculate_fraction_amount(&data_hash, &creator_hash);
+    anchor_spl::token::mint_to(mint_ctx, fraction_amount)?;
 
-    msg!("cNFT locked in vault: {}", vault.key());
     Ok(())
 }
