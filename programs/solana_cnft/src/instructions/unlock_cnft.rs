@@ -4,10 +4,17 @@ use mpl_bubblegum::{
     programs::{MPL_BUBBLEGUM_ID, SPL_NOOP_ID},
     accounts::TreeConfig,
     types::LeafSchema,
+    instructions::TransferCpiBuilder,
 };
 use spl_account_compression::{
     programs::SPL_ACCOUNT_COMPRESSION_ID,
     Noop,
+};
+
+use crate::{
+    error::ErrorCode,
+    state::Vault,
+    utils::calculate_fraction_amount,
 };
 
 #[derive(Accounts)]
@@ -59,43 +66,49 @@ pub struct UnlockCNFT<'info> {
 pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
     let vault = &ctx.accounts.vault;
     
-    // Verify fractions
+    // Verify fraction token balance
     let fraction_amount = calculate_fraction_amount(&vault.data_hash, &vault.creator_hash);
     require!(
         ctx.accounts.owner_fraction_account.amount >= fraction_amount,
         ErrorCode::InsufficientFractionBalance
     );
 
-    // Transfer NFT back using Bubblegum CPI  
-    let cpi_accounts = mpl_bubblegum::cpi::accounts::Transfer {
-        tree_authority: ctx.accounts.tree_authority.to_account_info(),
-        leaf_owner: vault.to_account_info(),
-        leaf_delegate: vault.to_account_info(),
-        new_leaf_owner: ctx.accounts.owner.key(),
-        merkle_tree: ctx.accounts.merkle_tree.to_account_info(),
-        log_wrapper: ctx.accounts.log_wrapper.to_account_info(),
-        compression_program: ctx.accounts.compression_program.to_account_info(),
-        system_program: ctx.accounts.system_program.to_account_info(),
-    };
+    // Transfer NFT back to owner using CPI
+    let transfer = TransferCpiBuilder::new(ctx.accounts.bubblegum_program.to_account_info())
+        .tree_authority(ctx.accounts.tree_authority.to_account_info())
+        .leaf_owner(vault.to_account_info())
+        .leaf_delegate(vault.to_account_info())
+        .new_leaf_owner(ctx.accounts.owner.key())
+        .merkle_tree(ctx.accounts.merkle_tree.to_account_info())
+        .log_wrapper(ctx.accounts.log_wrapper.to_account_info())
+        .compression_program(ctx.accounts.compression_program.to_account_info())
+        .system_program(ctx.accounts.system_program.to_account_info())
+        .root(vault.root)
+        .data_hash(vault.data_hash)
+        .creator_hash(vault.creator_hash)
+        .nonce(vault.nonce)
+        .index(vault.index);
 
-    let cpi_ctx = CpiContext::new(
-        ctx.accounts.bubblegum_program.to_account_info(),
-        cpi_accounts,
-    );
+    // Add proof accounts
+    for account in ctx.remaining_accounts.iter() {
+        transfer.add_remaining_account(account, false, false);
+    }
 
-    mpl_bubblegum::cpi::transfer(cpi_ctx, vault.root, vault.data_hash, vault.creator_hash, vault.nonce, vault.index)?;
+    transfer.invoke()?;
 
-    // Burn fractions
-    let burn_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        anchor_spl::token::Burn {
-            mint: ctx.accounts.fraction_mint.to_account_info(),
-            from: ctx.accounts.owner_fraction_account.to_account_info(),
-            authority: ctx.accounts.owner.to_account_info(),
-        }
-    );
+    // Burn fraction tokens
+    burn(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::Burn {
+                mint: ctx.accounts.fraction_mint.to_account_info(),
+                from: ctx.accounts.owner_fraction_account.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(),
+            },
+        ),
+        fraction_amount,
+    )?;
 
-    anchor_spl::token::burn(burn_ctx, fraction_amount)?;
-
+    msg!("cNFT unlocked from vault: {}", vault.key());
     Ok(())
 }
