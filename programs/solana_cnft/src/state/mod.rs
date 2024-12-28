@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use mpl_bubblegum::program::ID as BUBBLEGUM_ID;
-use spl_account_compression::program::ID as COMPRESSION_ID;
+use mpl_bubblegum::ID as BUBBLEGUM_ID;
+use spl_account_compression::id;
 
 #[account]
 pub struct Vault {

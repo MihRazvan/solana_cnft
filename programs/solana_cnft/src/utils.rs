@@ -7,7 +7,6 @@ use mpl_bubblegum::{
 };
 use spl_account_compression::ID as COMPRESSION_ID;
 
-/// Transfers a compressed NFT by calling Bubblegum's transfer instruction
 pub fn transfer_compressed_nft<'info>(
     bubblegum_program: AccountInfo<'info>,
     tree_authority: AccountInfo<'info>,
@@ -23,24 +22,34 @@ pub fn transfer_compressed_nft<'info>(
     index: u32,
     proof_accounts: &[AccountInfo<'info>],
 ) -> Result<()> {
-    let transfer = TransferCpiBuilder::new(bubblegum_program.clone())
-        .tree_authority(tree_authority.clone())
-        .leaf_owner(leaf_owner.clone())
-        .new_leaf_owner(new_leaf_owner)
-        .merkle_tree(merkle_tree.clone())
-        .log_wrapper(log_wrapper.clone())
-        .compression_program(compression_program.clone())
-        .root(root)
-        .data_hash(data_hash)
-        .creator_hash(creator_hash)
-        .nonce(nonce)
-        .index(index);
+    let mut accounts = vec![
+        AccountMeta::new_readonly(tree_authority.key(), false),
+        AccountMeta::new_readonly(leaf_owner.key(), true),
+        AccountMeta::new_readonly(new_leaf_owner, false),
+        AccountMeta::new(merkle_tree.key(), false),
+        AccountMeta::new_readonly(log_wrapper.key(), false),
+        AccountMeta::new_readonly(compression_program.key(), false),
+        AccountMeta::new_readonly(system_program::id(), false),
+    ];
 
-    for proof_account in proof_accounts {
-        transfer.add_remaining_account(proof_account, false, false);
-    }
+    accounts.extend(proof_accounts.iter().map(|a| AccountMeta::new_readonly(a.key(), false)));
 
-    transfer.invoke()
+    let ix = solana_program::instruction::Instruction {
+        program_id: mpl_bubblegum::ID,
+        accounts,
+        data: [root, data_hash, creator_hash, nonce.to_le_bytes(), index.to_le_bytes()].concat()
+    };
+
+    solana_program::program::invoke(
+        &ix,
+        &[
+            tree_authority,
+            leaf_owner,
+            merkle_tree,
+            log_wrapper,
+            compression_program,
+        ],
+    ).map_err(Into::into)
 }
 
 /// Get asset ID for a cNFT
@@ -80,19 +89,17 @@ pub fn validate_metadata(
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
 ) -> Result<()> {
-    // Validate data hash
-    let computed_data_hash = hash_metadata(metadata);
+    let computed_data_hash = hash_metadata(metadata).map_err(|_| error!(ErrorCode::DataHashMismatch))?;
     require!(
         computed_data_hash == data_hash,
-        crate::error::ErrorCode::DataHashMismatch
+        ErrorCode::DataHashMismatch
     );
 
-    // Validate creator hash if creators exist
     if !metadata.creators.is_empty() {
-        let computed_creator_hash = hash_creators(&metadata.creators);
+        let computed_creator_hash = hash_creators(&metadata.creators).map_err(|_| error!(ErrorCode::DataHashMismatch))?;
         require!(
             computed_creator_hash == creator_hash,
-            crate::error::ErrorCode::DataHashMismatch  
+            ErrorCode::DataHashMismatch
         );
     }
 
