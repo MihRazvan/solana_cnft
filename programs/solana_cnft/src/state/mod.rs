@@ -58,7 +58,7 @@ pub fn find_authority() -> (Pubkey, u8) {
 pub fn assert_vault_owner(
     vault: &Vault,
     expected_owner: &Pubkey,
-    program_id: &Pubkey,
+    _program_id: &Pubkey,  // Add underscore
 ) -> Result<()> {
     require!(
         vault.owner == *expected_owner,

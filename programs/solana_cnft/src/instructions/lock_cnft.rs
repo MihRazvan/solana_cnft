@@ -79,8 +79,8 @@ pub struct LockCNFT<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(
-    ctx: Context<LockCNFT>,
+pub fn handler<'info>(
+    ctx: Context<'_, '_, '_, 'info, LockCNFT<'info>>,
     metadata: MetadataArgs,
     root: [u8; 32],
     data_hash: [u8; 32],

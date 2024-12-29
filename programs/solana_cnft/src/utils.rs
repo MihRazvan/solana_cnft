@@ -43,8 +43,8 @@ pub fn transfer_compressed_nft<'a>(
     let ix = Instruction {
         program_id: BUBBLEGUM_ID,
         accounts,
-        data: create_transfer_data(root, data_hash, creator_hash, nonce, index),
-    };
+        data: create_transfer_data(&root, &data_hash, &creator_hash, nonce, index).to_vec(),
+    };    
 
     invoke(
         &ix,
@@ -97,17 +97,19 @@ pub fn calculate_fraction_amount(data_hash: &[u8; 32], creator_hash: &[u8; 32]) 
     (base_amount % 9900) + 100
 }
 
+const TRANSFER_DATA_SIZE: usize = 32 * 3 + 8 + 4;
+
 fn create_transfer_data(
-    root: [u8; 32],
-    data_hash: [u8; 32],
-    creator_hash: [u8; 32],
+    root: &[u8; 32],
+    data_hash: &[u8; 32],
+    creator_hash: &[u8; 32],
     nonce: u64,
     index: u32,
 ) -> Vec<u8> {
-    let mut data = Vec::with_capacity(32 * 3 + 8 + 4);
-    data.extend_from_slice(&root);
-    data.extend_from_slice(&data_hash);
-    data.extend_from_slice(&creator_hash);
+    let mut data = Vec::with_capacity(TRANSFER_DATA_SIZE);
+    data.extend_from_slice(root);
+    data.extend_from_slice(data_hash);
+    data.extend_from_slice(creator_hash);
     data.extend_from_slice(&nonce.to_le_bytes());
     data.extend_from_slice(&index.to_le_bytes());
     data

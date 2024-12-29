@@ -61,7 +61,9 @@ pub struct UnlockCNFT<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<UnlockCNFT>) -> Result<()> {
+pub fn handler<'info>(
+    ctx: Context<'_, '_, '_, 'info, UnlockCNFT<'info>>
+) -> Result<()> {
     let vault = &ctx.accounts.vault;
     
     // Verify fraction token balance
